@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>产品解决方案管理智能体 - SolutionManager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        surface: '#f8fafc',
+                        card: '#ffffff',
+                        muted: '#64748b',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        agent: {
+                            policy: '#7c3aed',
+                            needs: '#2563eb',
+                            goals: '#0891b2',
+                            solution: '#16a34a',
+                            supporting: '#ca8a04',
+                            cases: '#dc2626',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 50%, #fff 100%);
+        }
+
+        .card-shadow {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .card-shadow-hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.04);
+        }
+
+        .agent-card {
+            transition: all 0.2s ease;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.04);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .tab-active {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+        }
+
+        .section-tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .section-tab:hover {
+            background: #f1f5f9;
+        }
+
+        .section-tab.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+        }
+
+        .system-nav {
+            position: relative;
+        }
+
+        .system-nav-slider {
+            position: absolute;
+            bottom: 0;
+            height: 2px;
+            background: #2563eb;
+            border-radius: 1px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .system-nav-btn {
+            position: relative;
+            z-index: 1;
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: color 0.3s;
+            min-width: 96px;
+            text-align: center;
+        }
+
+        .system-nav-btn:hover {
+            color: #94a3b8;
+        }
+
+        .system-nav-btn.active {
+            color: #2563eb;
+        }
+
+        .analysis-card {
+            border-left: 3px solid;
+        }
+
+        .analysis-policy { border-color: #7c3aed; }
+        .analysis-needs { border-color: #2563eb; }
+        .analysis-goals { border-color: #0891b2; }
+        .analysis-solution { border-color: #16a34a; }
+        .analysis-supporting { border-color: #ca8a04; }
+        .analysis-cases { border-color: #dc2626; }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-surface min-h-screen">
+    <div id="app"></div>
+
+    <script>
+        // Mock Data
+        const mockSolution = {
+            solution_id: "SOL-2024-001",
+            title: "某某大学数据中台建设方案",
+            customer_id: "CUS-2024-089",
+            customer_name: "某某大学",
+            status: "draft",
+            created_at: "2024-06-20",
+            agents: {
+                policy: { status: "completed", output: "政策背景分析已完成" },
+                needs: { status: "confirmed", output: "需求分析报告已确认" },
+                goals: { status: "pending", output: "" },
+                solution: { status: "pending", output: "" },
+                aftersales: { status: "pending", output: "" },
+                ops: { status: "pending", output: "" },
+                team: { status: "pending", output: "" },
+                cases: { status: "pending", output: "" }
+            }
+        };
+
+        const mockCustomer = {
+            customer_code: "CUS-2024-089",
+            name: "某某大学",
+            customer_type: "高等教育",
+            region: "华东-上海市"
+        };
+
+        const mockPolicies = [
+            { citation_id: "POL-2024-089", title: "关于加快制造业绿色转型的指导意见", relevance: 0.95 },
+            { citation_id: "POL-2023-045", title: "教育信息化2.0行动计划", relevance: 0.88 }
+        ];
+
+        // State
+        let currentSection = 'architecture';
+        let currentAgent = 'policy';
+
+        // Utility Functions
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function getAgentStatusBadge(status) {
+            const badges = {
+                'pending': '<span class="badge bg-slate-100 text-slate-500">待执行</span>',
+                'running': '<span class="badge bg-amber-50 text-amber-700">执行中</span>',
+                'completed': '<span class="badge bg-emerald-50 text-emerald-700">已完成</span>',
+                'confirmed': '<span class="badge bg-blue-50 text-blue-700">已确认</span>',
+                'waiting': '<span class="badge bg-red-50 text-red-700">需确认</span>'
+            };
+            return badges[status] || badges['pending'];
+        }
+
+        function getAgentBorderColor(agent) {
+            const colors = {
+                'policy': 'border-l-agent-policy',
+                'needs': 'border-l-agent-needs',
+                'goals': 'border-l-agent-goals',
+                'solution': 'border-l-agent-solution',
+                'aftersales': 'border-l-agent-supporting',
+                'ops': 'border-l-agent-supporting',
+                'team': 'border-l-agent-supporting',
+                'cases': 'border-l-agent-cases'
+            };
+            return colors[agent] || 'border-l-slate-300';
+        }
+
+        function getAgentIcon(agent) {
+            const icons = {
+                'policy': '📋',
+                'needs': '📊',
+                'goals': '🎯',
+                'solution': '💡',
+                'aftersales': '🛡️',
+                'ops': '🔧',
+                'team': '👥',
+                'cases': '✅'
+            };
+            return icons[agent] || '📄';
+        }
+
+        function getAgentName(agent) {
+            const names = {
+                'policy': '政策背景',
+                'needs': '需求分析',
+                'goals': '建设目标',
+                'solution': '具体方案内容',
+                'aftersales': '售后服务',
+                'ops': '运维服务',
+                'team': '交付团队',
+                'cases': '成功案例'
+            };
+            return names[agent] || agent;
+        }
+
+        function getAgentDescription(agent) {
+            const descriptions = {
+                'policy': '调用 PolicyCollector 匹配相关政策',
+                'needs': '整合政策驱动 + 客户实际需求',
+                'goals': 'SMART 目标分解',
+                'solution': '系统架构设计与模块规划',
+                'aftersales': '售后服务范围与 SLA',
+                'ops': '运维模式与团队配置',
+                'team': '项目团队结构与人力投入',
+                'cases': '匹配同类成功案例'
+            };
+            return descriptions[agent] || '';
+        }
+
+        // Components
+        function Header() {
+            return `
+                <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+                    <div class="max-w-7xl mx-auto px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-purple-600 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h1 class="text-xl font-bold text-slate-900">产品解决方案管理</h1>
+                                    <p class="text-xs text-slate-500">SolutionManager · Multi-Agent 协作编排</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-6">
+                                <div class="system-nav flex items-center bg-slate-100 rounded-xl p-1" id="systemNav">
+                                    <button onclick="switchSystem('policy')" class="system-nav-btn" data-system="policy">政策搜集</button>
+                                    <button onclick="switchSystem('customer')" class="system-nav-btn" data-system="customer">客户收集</button>
+                                    <button onclick="switchSystem('solution')" class="system-nav-btn active" data-system="solution">方案管理</button>
+                                    <div class="system-nav-slider" id="systemNavSlider"></div>
+                                </div>
+                                <div class="w-px h-6 bg-slate-200"></div>
+                                <button onclick="window.open('agent-model-config.html', '_blank')" class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm text-slate-600 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    模型配置
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        function switchSystem(system) {
+            if (system === 'policy') {
+                window.location.href = 'policy_collector.html';
+            } else if (system === 'customer') {
+                window.location.href = 'customer_collector.html';
+            }
+        }
+
+        function initSystemNavSlider() {
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    const activeBtn = document.querySelector('.system-nav-btn.active');
+                    const slider = document.getElementById('systemNavSlider');
+                    if (activeBtn && slider) {
+                        const btnRect = activeBtn.getBoundingClientRect();
+                        const sliderRect = slider.parentElement.getBoundingClientRect();
+                        slider.style.left = (btnRect.left - sliderRect.left) + 'px';
+                        slider.style.width = btnRect.width + 'px';
+                    }
+                });
+            }, 200);
+        }
+
+        function SectionTabs() {
+            const sections = [
+                { id: 'architecture', label: '系统架构' },
+                { id: 'collaboration', label: 'Agent 协作' },
+                { id: 'editor', label: '方案编辑' },
+                { id: 'external', label: '外部联动' }
+            ];
+
+            return `
+                <div class="border-b border-slate-200 bg-white">
+                    <div class="max-w-7xl mx-auto px-6">
+                        <div class="flex gap-2">
+                            ${sections.map(s => `
+                                <button onclick="currentSection = '${s.id}'; render()"
+                                    class="section-tab ${currentSection === s.id ? 'active' : ''}">
+                                    ${s.label}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function ArchitectureView() {
+            return `
+                <div class="gradient-bg min-h-screen">
+                    <div class="max-w-7xl mx-auto px-6 py-12">
+                        <!-- Hero -->
+                        <div class="text-center mb-12">
+                            <h2 class="text-4xl font-bold text-slate-900 mb-4">
+                                Multi-Agent <span class="text-primary-600">协作编排</span>智能方案生成
+                            </h2>
+                            <p class="text-lg text-slate-600 mb-8">
+                                8 个子智能体协同工作，从政策背景到具体方案，全程可视化追踪
+                            </p>
+                        </div>
+
+                        <!-- System Architecture -->
+                        <div class="bg-white rounded-2xl p-8 card-shadow mb-8">
+                            <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                                </svg>
+                                系统架构
+                            </h3>
+
+                            <!-- External Systems -->
+                            <div class="flex items-center justify-center gap-4 mb-8">
+                                <div class="px-6 py-3 bg-slate-100 rounded-xl text-center">
+                                    <div class="text-sm font-medium text-slate-700">CustomerCollector</div>
+                                    <div class="text-xs text-slate-500">客户信息</div>
+                                </div>
+                                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                                </svg>
+                                <div class="px-6 py-3 bg-primary-50 border-2 border-primary-200 rounded-xl text-center">
+                                    <div class="text-sm font-bold text-primary-700">SolutionManager</div>
+                                    <div class="text-xs text-primary-600">Orchestrator</div>
+                                </div>
+                                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                                </svg>
+                                <div class="px-6 py-3 bg-slate-100 rounded-xl text-center">
+                                    <div class="text-sm font-medium text-slate-700">PolicyCollector</div>
+                                    <div class="text-xs text-slate-500">政策信息</div>
+                                </div>
+                            </div>
+
+                            <!-- Agent Chain -->
+                            <div class="space-y-4">
+                                <!-- Serial Chain -->
+                                <div class="flex items-center justify-center gap-3">
+                                    <div class="w-32 px-4 py-3 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">📋</div>
+                                        <div class="text-xs font-medium text-purple-700">PolicyAgent</div>
+                                    </div>
+                                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                                    </svg>
+                                    <div class="w-32 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">📊</div>
+                                        <div class="text-xs font-medium text-blue-700">NeedsAgent</div>
+                                    </div>
+                                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                                    </svg>
+                                    <div class="w-32 px-4 py-3 bg-cyan-50 border border-cyan-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">🎯</div>
+                                        <div class="text-xs font-medium text-cyan-700">GoalsAgent</div>
+                                    </div>
+                                    <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                                    </svg>
+                                    <div class="w-32 px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">💡</div>
+                                        <div class="text-xs font-medium text-green-700">SolutionAgent</div>
+                                    </div>
+                                </div>
+
+                                <!-- Parallel Agents -->
+                                <div class="flex items-center justify-center gap-3 mt-6">
+                                    <div class="text-xs text-slate-500 mr-2">支撑 Agent（并行）:</div>
+                                    <div class="w-28 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">🛡️</div>
+                                        <div class="text-xs font-medium text-amber-700">AfterSales</div>
+                                    </div>
+                                    <div class="w-28 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">🔧</div>
+                                        <div class="text-xs font-medium text-amber-700">OpsAgent</div>
+                                    </div>
+                                    <div class="w-28 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">👥</div>
+                                        <div class="text-xs font-medium text-amber-700">TeamAgent</div>
+                                    </div>
+                                    <div class="w-28 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-center">
+                                        <div class="text-2xl mb-1">✅</div>
+                                        <div class="text-xs font-medium text-red-700">CasesAgent</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LLM Strategy -->
+                        <div class="bg-white rounded-2xl p-8 card-shadow">
+                            <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                                LLM 选型策略
+                            </h3>
+
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="p-6 bg-purple-50 rounded-xl border border-purple-200">
+                                    <h4 class="font-semibold text-purple-700 mb-3">Qwen3.6-Plus · 中文理解</h4>
+                                    <ul class="text-sm text-slate-600 space-y-2">
+                                        <li>• PolicyAgent - 政策解读</li>
+                                        <li>• NeedsAgent - 需求分析</li>
+                                        <li>• AfterSalesAgent - 售后方案</li>
+                                        <li>• OpsAgent - 运维方案</li>
+                                        <li>• TeamAgent - 团队方案</li>
+                                        <li>• CasesAgent - 案例分析</li>
+                                    </ul>
+                                </div>
+                                <div class="p-6 bg-green-50 rounded-xl border border-green-200">
+                                    <h4 class="font-semibold text-green-700 mb-3">DeepSeek-V4 · 复杂推理</h4>
+                                    <ul class="text-sm text-slate-600 space-y-2">
+                                        <li>• GoalsAgent - SMART 目标分解</li>
+                                        <li>• SolutionAgent - 方案架构设计</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function CollaborationView() {
+            const agents = ['policy', 'needs', 'goals', 'solution', 'aftersales', 'ops', 'team', 'cases'];
+
+            return `
+                <div class="bg-surface min-h-screen">
+                    <div class="max-w-7xl mx-auto px-6 py-12">
+                        <div class="bg-white rounded-2xl p-8 card-shadow">
+                            <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                Agent 执行流程
+                            </h3>
+
+                            <!-- Legend -->
+                            <div class="flex items-center gap-6 mb-8">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                    <span class="text-sm text-slate-600">已完成</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    <span class="text-sm text-slate-600">已确认</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                                    <span class="text-sm text-slate-600">执行中</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                                    <span class="text-sm text-slate-600">待执行</span>
+                                </div>
+                            </div>
+
+                            <!-- Agent Grid -->
+                            <div class="space-y-4">
+                                <!-- Serial Agents -->
+                                <div class="flex items-center gap-3">
+                                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                    <div class="flex-1 grid grid-cols-4 gap-3">
+                                        ${['policy', 'needs', 'goals', 'solution'].map(agent => {
+                                            const status = mockSolution.agents[agent]?.status || 'pending';
+                                            const isConfirmRequired = agent === 'needs' || agent === 'solution';
+                                            return `
+                                                <div class="agent-card bg-white border ${getAgentBorderColor(agent)} border-l-4 rounded-xl p-4 cursor-pointer"
+                                                     onclick="currentAgent = '${agent}'; currentSection = 'editor'; render()">
+                                                    <div class="flex items-center justify-between mb-2">
+                                                        <span class="text-2xl">${getAgentIcon(agent)}</span>
+                                                        ${getAgentStatusBadge(status)}
+                                                    </div>
+                                                    <div class="font-medium text-slate-900 mb-1">${getAgentName(agent)}</div>
+                                                    <div class="text-xs text-slate-500">${getAgentDescription(agent)}</div>
+                                                    ${isConfirmRequired ? '<div class="mt-2 text-xs text-red-500 font-medium">⚠️ 需人工确认</div>' : ''}
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- Arrow -->
+                                <div class="flex items-center justify-center py-2">
+                                    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                                    </svg>
+                                    <span class="ml-2 text-sm text-slate-500">并行执行</span>
+                                </div>
+
+                                <!-- Parallel Agents -->
+                                <div class="flex items-center gap-3">
+                                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                                    <div class="flex-1 grid grid-cols-4 gap-3">
+                                        ${['aftersales', 'ops', 'team', 'cases'].map(agent => {
+                                            const status = mockSolution.agents[agent]?.status || 'pending';
+                                            return `
+                                                <div class="agent-card bg-white border ${getAgentBorderColor(agent)} border-l-4 rounded-xl p-4 cursor-pointer"
+                                                     onclick="currentAgent = '${agent}'; currentSection = 'editor'; render()">
+                                                    <div class="flex items-center justify-between mb-2">
+                                                        <span class="text-2xl">${getAgentIcon(agent)}</span>
+                                                        ${getAgentStatusBadge(status)}
+                                                    </div>
+                                                    <div class="font-medium text-slate-900 mb-1">${getAgentName(agent)}</div>
+                                                    <div class="text-xs text-slate-500">${getAgentDescription(agent)}</div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Execution Control -->
+                            <div class="mt-8 pt-8 border-t border-slate-200">
+                                <div class="flex items-center gap-4">
+                                    <button onclick="runAgentChain()" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-colors flex items-center gap-2">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        执行下一阶段
+                                    </button>
+                                    <button onclick="resetChain()" class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition-colors">
+                                        重置流程
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Execution Log -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow mt-6">
+                            <h4 class="font-semibold text-slate-900 mb-4">执行日志</h4>
+                            <div class="bg-slate-900 rounded-xl p-4 font-mono text-sm max-h-64 overflow-y-auto">
+                                <div class="text-slate-500">--:--:-- [System] 等待开始执行...</div>
+                                <div class="text-emerald-400">✓ [PolicyAgent] 政策背景分析完成</div>
+                                <div class="text-blue-400">✓ [NeedsAgent] 需求分析报告已确认</div>
+                                <div class="text-slate-500">○ [GoalsAgent] 等待执行</div>
+                                <div class="text-slate-500">○ [SolutionAgent] 等待执行</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function EditorView() {
+            const agentOutputs = {
+                policy: {
+                    title: '政策背景分析',
+                    content: `
+                        <h4 class="font-semibold text-slate-900 mb-3">一、匹配政策</h4>
+                        <div class="space-y-3 mb-6">
+                            <div class="p-3 bg-purple-50 rounded-xl">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="mono text-xs text-purple-600">POL-2024-089</span>
+                                    <span class="badge bg-purple-100 text-purple-700">相关性 95%</span>
+                                </div>
+                                <p class="text-sm font-medium text-slate-900">关于加快制造业绿色转型的指导意见</p>
+                            </div>
+                            <div class="p-3 bg-purple-50 rounded-xl">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="mono text-xs text-purple-600">POL-2023-045</span>
+                                    <span class="badge bg-purple-100 text-purple-700">相关性 88%</span>
+                                </div>
+                                <p class="text-sm font-medium text-slate-900">教育信息化2.0行动计划</p>
+                            </div>
+                        </div>
+                        <h4 class="font-semibold text-slate-900 mb-3">二、政策驱动需求</h4>
+                        <ul class="text-sm text-slate-600 space-y-2">
+                            <li>• 构建教育数据治理体系（《教育信息化2.0》第十二条）</li>
+                            <li>• 推进教育数据共享开放（《数字中国》第XX条）</li>
+                            <li>• 建立数据质量标准规范（《数据安全法》第XX条）</li>
+                        </ul>
+                    `
+                },
+                needs: {
+                    title: '需求分析报告',
+                    content: `
+                        <h4 class="font-semibold text-slate-900 mb-3">一、政策驱动需求</h4>
+                        <div class="p-4 bg-blue-50 rounded-xl mb-4">
+                            <p class="text-sm text-slate-700">基于《教育信息化2.0行动计划》和《数字中国建设整体布局规划》，结合客户类型（高等教育）和需求类型（数据治理），识别以下政策驱动需求：</p>
+                        </div>
+                        <ul class="text-sm text-slate-600 space-y-2 mb-6">
+                            <li><strong>N-POL-001</strong>：构建教育数据治理体系</li>
+                            <li><strong>N-POL-002</strong>：推进教育数据共享开放</li>
+                            <li><strong>N-POL-003</strong>：建立数据质量标准规范</li>
+                        </ul>
+                        <h4 class="font-semibold text-slate-900 mb-3">二、客户实际需求</h4>
+                        <div class="p-4 bg-amber-50 rounded-xl mb-4">
+                            <p class="text-sm text-slate-700">通过客户访谈和历史资料分析，识别以下实际需求：</p>
+                        </div>
+                        <ul class="text-sm text-slate-600 space-y-2 mb-6">
+                            <li><strong>N-CUS-001</strong>：数据孤岛严重，各业务系统数据无法互通（优先级：高）</li>
+                            <li><strong>N-CUS-002</strong>：数据质量差，数据标准不统一（优先级：高）</li>
+                            <li><strong>N-CUS-003</strong>：缺乏统一的数据服务平台（优先级：中）</li>
+                        </ul>
+                        <h4 class="font-semibold text-slate-900 mb-3">三、综合需求</h4>
+                        <div class="p-4 bg-emerald-50 rounded-xl">
+                            <p class="text-sm text-slate-700 mb-3">将政策驱动需求和客户实际需求融合，形成以下综合需求：</p>
+                            <ul class="text-sm text-slate-600 space-y-2">
+                                <li><strong>SN-001</strong>：建立统一数据标准体系（关联：N-POL-001, N-CUS-002）</li>
+                                <li><strong>SN-002</strong>：打通12个核心业务系统数据壁垒（关联：N-CUS-001）</li>
+                                <li><strong>SN-003</strong>：建成数据资产可视化平台（关联：N-POL-002, N-CUS-003）</li>
+                            </ul>
+                        </div>
+                    `
+                },
+                goals: {
+                    title: '建设目标设定',
+                    content: `
+                        <div class="text-center py-12 text-slate-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p>GoalsAgent 待执行</p>
+                            <p class="text-sm">基于需求分析报告，自动分解 SMART 目标</p>
+                        </div>
+                    `
+                },
+                solution: {
+                    title: '具体方案内容',
+                    content: `
+                        <div class="text-center py-12 text-slate-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p>SolutionAgent 待执行</p>
+                            <p class="text-sm">基于建设目标，设计系统架构与模块规划</p>
+                        </div>
+                    `
+                },
+                aftersales: {
+                    title: '售后服务方案',
+                    content: `
+                        <div class="text-center py-12 text-slate-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p>AfterSalesAgent 待执行</p>
+                            <p class="text-sm">售后服务范围与 SLA 设计</p>
+                        </div>
+                    `
+                },
+                ops: {
+                    title: '运维服务方案',
+                    content: `
+                        <div class="text-center py-12 text-slate-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p>OpsAgent 待执行</p>
+                            <p class="text-sm">运维模式与团队配置</p>
+                        </div>
+                    `
+                },
+                team: {
+                    title: '交付团队配置',
+                    content: `
+                        <div class="text-center py-12 text-slate-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p>TeamAgent 待执行</p>
+                            <p class="text-sm">项目团队结构与人力投入</p>
+                        </div>
+                    `
+                },
+                cases: {
+                    title: '成功案例匹配',
+                    content: `
+                        <div class="text-center py-12 text-slate-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p>CasesAgent 待执行</p>
+                            <p class="text-sm">匹配同类成功案例供参考</p>
+                        </div>
+                    `
+                }
+            };
+
+            const output = agentOutputs[currentAgent] || agentOutputs.policy;
+            const isConfirmRequired = currentAgent === 'needs' || currentAgent === 'solution';
+            const status = mockSolution.agents[currentAgent]?.status || 'pending';
+
+            return `
+                <div class="bg-surface min-h-screen">
+                    <div class="max-w-7xl mx-auto px-6 py-8">
+                        <!-- Solution Header -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="mono text-sm text-slate-400">${mockSolution.solution_id}</span>
+                                        <span class="badge bg-slate-100 text-slate-600">${mockSolution.status === 'draft' ? '草稿' : '已发布'}</span>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-slate-900">${mockSolution.title}</h2>
+                                    <p class="text-sm text-slate-500 mt-1">客户：${mockCustomer.name} · ${mockCustomer.customer_type}</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <button class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
+                                        预览方案
+                                    </button>
+                                    <button class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
+                                        发布方案
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-6">
+                            <!-- Left: Agent Navigation -->
+                            <div class="space-y-3">
+                                <div class="bg-white rounded-xl p-4 card-shadow">
+                                    <h4 class="font-semibold text-slate-900 mb-4">方案模块</h4>
+                                    <div class="space-y-2">
+                                        ${Object.keys(agentOutputs).map(agent => {
+                                            const agentStatus = mockSolution.agents[agent]?.status || 'pending';
+                                            const isActive = currentAgent === agent;
+                                            return `
+                                                <div onclick="currentAgent = '${agent}'; render()"
+                                                     class="p-3 rounded-xl cursor-pointer transition-all ${isActive ? 'bg-primary-50 border border-primary-200' : 'hover:bg-slate-50'}">
+                                                    <div class="flex items-center justify-between">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-lg">${getAgentIcon(agent)}</span>
+                                                            <span class="text-sm font-medium ${isActive ? 'text-primary-700' : 'text-slate-700'}">${getAgentName(agent)}</span>
+                                                        </div>
+                                                        ${getAgentStatusBadge(agentStatus)}
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Center: Editor -->
+                            <div class="col-span-2 space-y-6">
+                                <div class="bg-white rounded-2xl card-shadow">
+                                    <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+                                        <h4 class="font-semibold text-slate-900">${output.title}</h4>
+                                        <div class="flex items-center gap-2">
+                                            ${getAgentStatusBadge(status)}
+                                            <button class="p-2 hover:bg-slate-100 rounded-lg">
+                                                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="p-6 max-h-96 overflow-y-auto">
+                                        <div class="prose prose-slate max-w-none text-sm">
+                                            ${output.content}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                ${isConfirmRequired ? `
+                                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                                    <div class="flex items-start gap-3">
+                                        <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div>
+                                            <h5 class="font-medium text-amber-800 mb-1">需要人工确认</h5>
+                                            <p class="text-sm text-amber-700 mb-3">请审核以上内容，确认后进入下一阶段</p>
+                                            <div class="flex items-center gap-2">
+                                                <button onclick="confirmAgent('${currentAgent}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">
+                                                    ✓ 批准
+                                                </button>
+                                                <button class="px-4 py-2 bg-white border border-amber-300 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-50 transition-colors">
+                                                    修改
+                                                </button>
+                                                <button class="px-4 py-2 bg-white border border-amber-300 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-50 transition-colors">
+                                                    重新生成
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function ExternalView() {
+            return `
+                <div class="gradient-bg min-h-screen">
+                    <div class="max-w-7xl mx-auto px-6 py-12">
+                        <div class="space-y-6">
+                            <!-- CustomerCollector Integration -->
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                    </svg>
+                                    与 CustomerCollector 联动
+                                </h3>
+                                <div class="overflow-hidden">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-200">
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">接口</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">说明</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">缓存策略</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <tr>
+                                                <td class="py-3 px-4 mono text-xs text-primary-600">getCustomerProfile()</td>
+                                                <td class="py-3 px-4 text-slate-600">获取客户画像</td>
+                                                <td class="py-3 px-4"><span class="badge bg-blue-50 text-blue-700">30分钟</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-3 px-4 mono text-xs text-primary-600">getCustomerNeeds()</td>
+                                                <td class="py-3 px-4 text-slate-600">获取客户需求</td>
+                                                <td class="py-3 px-4"><span class="badge bg-amber-50 text-amber-700">15分钟</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-3 px-4 mono text-xs text-primary-600">getCustomerProjects()</td>
+                                                <td class="py-3 px-4 text-slate-600">获取历史项目</td>
+                                                <td class="py-3 px-4"><span class="badge bg-blue-50 text-blue-700">30分钟</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- PolicyCollector Integration -->
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    与 PolicyCollector 联动
+                                </h3>
+                                <div class="overflow-hidden">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-200">
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">接口</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">说明</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">缓存策略</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <tr>
+                                                <td class="py-3 px-4 mono text-xs text-purple-600">searchPolicies()</td>
+                                                <td class="py-3 px-4 text-slate-600">搜索匹配政策</td>
+                                                <td class="py-3 px-4"><span class="badge bg-amber-50 text-amber-700">1小时</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-3 px-4 mono text-xs text-purple-600">getPolicyDetail()</td>
+                                                <td class="py-3 px-4 text-slate-600">获取政策原文</td>
+                                                <td class="py-3 px-4"><span class="badge bg-amber-50 text-amber-700">24小时</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Degradation Strategy -->
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                    </svg>
+                                    降级策略
+                                </h3>
+                                <div class="overflow-hidden">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-200">
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">故障场景</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">降级级别</th>
+                                                <th class="text-left py-3 px-4 font-semibold text-slate-700">处理方式</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <tr>
+                                                <td class="py-3 px-4 text-slate-700">PolicyCollector 不可用</td>
+                                                <td class="py-3 px-4"><span class="badge bg-amber-50 text-amber-700">DEGRADED</span></td>
+                                                <td class="py-3 px-4 text-slate-600">使用缓存 + 生成通用政策背景</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-3 px-4 text-slate-700">CustomerCollector 不可用</td>
+                                                <td class="py-3 px-4"><span class="badge bg-amber-50 text-amber-700">DEGRADED</span></td>
+                                                <td class="py-3 px-4 text-slate-600">使用缓存 + 允许手动输入</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-3 px-4 text-slate-700">两者都不可用</td>
+                                                <td class="py-3 px-4"><span class="badge bg-red-50 text-red-700">MINIMAL</span></td>
+                                                <td class="py-3 px-4 text-slate-600">仅能编辑已有方案</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-3 px-4 text-slate-700">LLM 不可用</td>
+                                                <td class="py-3 px-4"><span class="badge bg-red-50 text-red-700">EMERGENCY</span></td>
+                                                <td class="py-3 px-4 text-slate-600">暂停所有生成，仅支持手动</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Actions
+        function runAgentChain() {
+            alert('执行下一阶段：GoalsAgent');
+        }
+
+        function resetChain() {
+            alert('重置执行流程');
+        }
+
+        function confirmAgent(agent) {
+            mockSolution.agents[agent].status = 'confirmed';
+            render();
+            alert(`${getAgentName(agent)} 已确认`);
+        }
+
+        // Render
+        function render() {
+            let content = '';
+            switch (currentSection) {
+                case 'architecture':
+                    content = ArchitectureView();
+                    break;
+                case 'collaboration':
+                    content = CollaborationView();
+                    break;
+                case 'editor':
+                    content = EditorView();
+                    break;
+                case 'external':
+                    content = ExternalView();
+                    break;
+                default:
+                    content = ArchitectureView();
+            }
+
+            document.getElementById('app').innerHTML = Header() + SectionTabs() + content;
+        }
+
+        // Initialize
+        render();
+        setTimeout(initSystemNavSlider, 100);
+    </script>
+</body>
+</html>

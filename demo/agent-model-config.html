@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能体模型配置 - Agent Model Config</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        surface: '#f8fafc',
+                        card: '#ffffff',
+                        muted: '#64748b',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        deepseek: '#6366f1',
+                        qwen: '#8b5cf6',
+                        minimax: '#06b6d4',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 50%, #fff 100%);
+        }
+
+        .card-shadow {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .card-shadow-hover:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.04);
+        }
+
+        .agent-card {
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .model-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .model-deepseek {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+        }
+
+        .model-qwen {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+        }
+
+        .model-minimax {
+            background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+            color: white;
+        }
+
+        .model-custom {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+            color: white;
+        }
+
+        .system-tab {
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .system-tab:hover {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .system-tab.active {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr auto;
+            gap: 16px;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .config-row:last-child {
+            border-bottom: none;
+        }
+
+        .config-row:hover {
+            background: #fafafa;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot.online {
+            background: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot.offline {
+            background: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+
+        .status-dot.warning {
+            background: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            ring: 2px;
+            ring-color: #2563eb;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-surface min-h-screen">
+    <div id="app"></div>
+
+    <script>
+        // Model Config State
+        const modelConfigs = {
+            'deepseek-v4': {
+                id: 'deepseek-v4',
+                name: 'DeepSeek V4',
+                provider: 'DeepSeek',
+                baseUrl: 'https://api.deepseek.com/v1',
+                apiKey: 'sk-deepseek-xxxxxxxxxxxxxxxx',
+                status: 'online',
+                capabilities: ['chat', 'reasoning', 'code'],
+                maxTokens: 64000,
+                temperature: 0.7
+            },
+            'qwen3.6': {
+                id: 'qwen3.6',
+                name: 'Qwen3.6-Plus',
+                provider: 'Alibaba Cloud',
+                baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                apiKey: 'sk-qwen-xxxxxxxxxxxxxxxx',
+                status: 'online',
+                capabilities: ['chat', 'vision', 'function-call'],
+                maxTokens: 32000,
+                temperature: 0.8
+            },
+            'minimax2.7': {
+                id: 'minimax2.7',
+                name: 'MiniMax 2.7',
+                provider: 'MiniMax',
+                baseUrl: 'https://api.minimax.chat/v1',
+                apiKey: 'sk-minimax-xxxxxxxxxxxxxxxx',
+                status: 'online',
+                capabilities: ['chat', 'embedding'],
+                maxTokens: 32000,
+                temperature: 0.9
+            }
+        };
+
+        // Agent Configurations for each system
+        const agentConfigs = {
+            customerCollector: {
+                name: '客户信息收集智能体',
+                icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+                color: '#10b981',
+                agents: [
+                    { id: 'sales', name: '销售智能体', description: '商机识别、决策链分析、竞争态势', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'presales', name: '售前智能体', description: '需求匹配、政策依据、差异化分析', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'implementation', name: '实施智能体', description: '兼容性评估、工时估算、技术风险', model: 'deepseek-v4', modelName: 'DeepSeek V4' },
+                    { id: 'aftersales', name: '售后智能体', description: '续费机会、服务工作量、故障分析', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'decision', name: '决策者智能体', description: '战略价值、ROI分析、风险控制', model: 'deepseek-v4', modelName: 'DeepSeek V4' },
+                    { id: 'user', name: '使用者智能体', description: '操作体验、功能实用性、培训需求', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' }
+                ]
+            },
+            policyCollector: {
+                name: '政策搜集智能体',
+                icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+                color: '#3b82f6',
+                agents: [
+                    { id: 'relation', name: '关联分析智能体', description: '发现政策间的关联关系', model: 'deepseek-v4', modelName: 'DeepSeek V4' },
+                    { id: 'verification', name: '校验智能体', description: '政策信息准确性校验', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'search', name: '检索智能体', description: '向量检索与混合检索', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'embedding', name: 'Embedding智能体', description: '政策内容向量化', model: 'minimax2.7', modelName: 'MiniMax 2.7' }
+                ]
+            },
+            solutionManager: {
+                name: '方案管理智能体',
+                icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
+                color: '#8b5cf6',
+                agents: [
+                    { id: 'orchestrator', name: '主编排器', description: '协调各子智能体执行顺序和上下文', model: 'deepseek-v4', modelName: 'DeepSeek V4', isCore: true },
+                    { id: 'policy', name: 'PolicyAgent', description: '政策背景分析，匹配相关政策', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'needs', name: 'NeedsAgent', description: '需求深度分析，结合政策与客户实际', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'goals', name: 'GoalsAgent', description: 'SMART目标分解与里程碑规划', model: 'deepseek-v4', modelName: 'DeepSeek V4' },
+                    { id: 'solution', name: 'SolutionAgent', description: '具体方案内容设计', model: 'deepseek-v4', modelName: 'DeepSeek V4' },
+                    { id: 'aftersales', name: 'AfterSalesAgent', description: '售后服务方案设计', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'ops', name: 'OpsAgent', description: '运维服务方案设计', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'team', name: 'TeamAgent', description: '交付团队方案设计', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' },
+                    { id: 'cases', name: 'CasesAgent', description: '成功案例匹配与分析', model: 'qwen3.6', modelName: 'Qwen3.6-Plus' }
+                ]
+            }
+        };
+
+        // State
+        let currentSystem = 'customerCollector';
+        let editingModel = null;
+        let editingAgent = null;
+        let showModelModal = false;
+        let showAgentModal = false;
+        let searchQuery = '';
+
+        // Utility Functions
+        function getModelBadgeClass(modelId) {
+            if (modelId === 'deepseek-v4') return 'model-deepseek';
+            if (modelId === 'qwen3.6') return 'model-qwen';
+            if (modelId === 'minimax2.7') return 'model-minimax';
+            return 'model-custom';
+        }
+
+        function getModelBadgeStyle(modelId) {
+            const configs = {
+                'deepseek-v4': { bg: '#6366f1', text: 'DeepSeek V4' },
+                'qwen3.6': { bg: '#8b5cf6', text: 'Qwen3.6' },
+                'minimax2.7': { bg: '#06b6d4', text: 'MiniMax 2.7' }
+            };
+            return configs[modelId] || { bg: '#64748b', text: modelId };
+        }
+
+        function getStatusDot(status) {
+            return `<span class="status-dot ${status}"></span>`;
+        }
+
+        function maskApiKey(key) {
+            if (!key) return '';
+            if (key.length < 8) return '***';
+            return key.slice(0, 6) + '***' + key.slice(-4);
+        }
+
+        // Components
+        function Header() {
+            return `
+                <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+                    <div class="max-w-7xl mx-auto px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h1 class="text-xl font-bold text-slate-900">智能体模型配置</h1>
+                                    <p class="text-xs text-slate-500">Agent Model Configuration Center</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+                                    <span class="text-sm text-slate-600">系统就绪</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        function SystemTabs() {
+            const systems = [
+                { id: 'customerCollector', name: '客户收集', agentCount: 6, color: '#10b981' },
+                { id: 'policyCollector', name: '政策搜集', agentCount: 4, color: '#3b82f6' },
+                { id: 'solutionManager', name: '方案管理', agentCount: 9, color: '#8b5cf6' }
+            ];
+
+            return `
+                <div class="bg-white border-b border-slate-200">
+                    <div class="max-w-7xl mx-auto px-6">
+                        <div class="flex items-center gap-1 py-4">
+                            ${systems.map(sys => `
+                                <button
+                                    onclick="currentSystem = '${sys.id}; render()"
+                                    class="system-tab ${currentSystem === sys.id ? 'active' : ''}"
+                                    style="${currentSystem === sys.id ? `background: ${sys.color}15; color: ${sys.color}` : ''}"
+                                >
+                                    <span class="flex items-center gap-2">
+                                        ${sys.name}
+                                        <span class="px-1.5 py-0.5 rounded-full text-xs font-medium" style="background: ${sys.color}20; color: ${sys.color}">
+                                            ${sys.agentCount}
+                                        </span>
+                                    </span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function GlobalModelsSection() {
+            const models = Object.values(modelConfigs);
+
+            return `
+                <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 class="text-lg font-semibold text-slate-900">全局模型配置</h2>
+                            <p class="text-sm text-slate-500 mt-1">配置所有可用的AI模型，支持DeepSeek、Qwen、Minimax等</p>
+                        </div>
+                        <button onclick="openAddModelModal()" class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            添加模型
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        ${models.map(model => {
+                            const badgeStyle = getModelBadgeStyle(model.id);
+                            return `
+                                <div class="relative p-5 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer" onclick="openEditModelModal('${model.id}')">
+                                    <div class="flex items-start justify-between mb-4">
+                                        <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: ${badgeStyle.bg}20">
+                                            <span class="text-lg font-bold" style="color: ${badgeStyle.bg}">${model.name.charAt(0)}</span>
+                                        </div>
+                                        ${getStatusDot(model.status)}
+                                    </div>
+                                    <h3 class="font-semibold text-slate-900 mb-1">${model.name}</h3>
+                                    <p class="text-xs text-slate-500 mb-3">${model.provider}</p>
+                                    <div class="flex items-center gap-2 mb-3">
+                                        ${model.capabilities.map(cap => `
+                                            <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">${cap}</span>
+                                        `).join('')}
+                                    </div>
+                                    <div class="text-xs text-slate-400 mono">${maskApiKey(model.apiKey)}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function AgentListSection() {
+            const system = agentConfigs[currentSystem];
+
+            return `
+                <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                    <div class="p-6 border-b border-slate-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: ${system.color}20">
+                                    <svg class="w-5 h-5" style="color: ${system.color}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${system.icon}"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2 class="text-lg font-semibold text-slate-900">${system.name}</h2>
+                                    <p class="text-sm text-slate-500">${system.agents.length} 个子智能体</p>
+                                </div>
+                            </div>
+                            <div class="relative">
+                                <svg class="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <input
+                                    type="text"
+                                    placeholder="搜索智能体..."
+                                    value="${searchQuery}"
+                                    oninput="searchQuery = this.value; render()"
+                                    class="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="divide-y divide-slate-100">
+                        ${system.agents.filter(agent => {
+                            if (!searchQuery) return true;
+                            return agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                   agent.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                   agent.description.toLowerCase().includes(searchQuery.toLowerCase());
+                        }).map(agent => {
+                            const badgeStyle = getModelBadgeStyle(agent.model);
+                            return `
+                                <div class="agent-card p-5 hover:bg-slate-50 transition-all" style="border-left-color: ${system.color}">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-3 mb-2">
+                                                <h3 class="font-medium text-slate-900">${agent.name}</h3>
+                                                ${agent.isCore ? '<span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">核心</span>' : ''}
+                                                <span class="mono text-xs text-slate-400">${agent.id}</span>
+                                            </div>
+                                            <p class="text-sm text-slate-500 mb-2">${agent.description}</p>
+                                            <div class="flex items-center gap-4 text-xs text-slate-400">
+                                                <span>调用模型：</span>
+                                                <span class="model-badge ${getModelBadgeClass(agent.model)}">${agent.modelName}</span>
+                                            </div>
+                                        </div>
+                                        <button onclick="openEditAgentModal('${agent.id}')" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function ModelConfigModal() {
+            if (!showModelModal || !editingModel) return '';
+
+            const model = modelConfigs[editingModel] || {
+                id: '',
+                name: '',
+                provider: '',
+                baseUrl: '',
+                apiKey: '',
+                capabilities: [],
+                maxTokens: 32000,
+                temperature: 0.7
+            };
+
+            const isNew = !modelConfigs[editingModel];
+
+            return `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()">
+                        <div class="p-6 border-b border-slate-200">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-lg font-semibold text-slate-900">${isNew ? '添加模型' : '编辑模型'}</h2>
+                                <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-lg">
+                                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <form class="p-6 space-y-5" onsubmit="saveModelConfig(event)">
+                            <div class="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">模型ID *</label>
+                                    <input type="text" name="modelId" value="${model.id}" ${isNew ? '' : 'readonly'}
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm ${isNew ? '' : 'bg-slate-50'}"
+                                        placeholder="如: deepseek-v4">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">模型名称 *</label>
+                                    <input type="text" name="modelName" value="${model.name}"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm"
+                                        placeholder="如: DeepSeek V4">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">供应商</label>
+                                    <input type="text" name="provider" value="${model.provider}"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm"
+                                        placeholder="如: DeepSeek">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">API Key *</label>
+                                    <input type="password" name="apiKey" value="${model.apiKey}"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm mono"
+                                        placeholder="sk-xxxxxxxx">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Base URL *</label>
+                                <input type="text" name="baseUrl" value="${model.baseUrl}"
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm mono"
+                                    placeholder="https://api.deepseek.com/v1">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">最大Token数</label>
+                                    <input type="number" name="maxTokens" value="${model.maxTokens}"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm"
+                                        placeholder="64000">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Temperature</label>
+                                    <input type="number" name="temperature" value="${model.temperature}" step="0.1" min="0" max="2"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm"
+                                        placeholder="0.7">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">能力标签</label>
+                                <div class="flex flex-wrap gap-2">
+                                    ${['chat', 'vision', 'function-call', 'reasoning', 'code', 'embedding'].map(cap => `
+                                        <label class="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 ${model.capabilities.includes(cap) ? 'bg-primary-50 border-primary-200' : ''}">
+                                            <input type="checkbox" name="capabilities" value="${cap}" ${model.capabilities.includes(cap) ? 'checked' : ''} class="rounded">
+                                            <span class="text-sm">${cap}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-3 pt-4 border-t border-slate-200">
+                                ${!isNew ? `
+                                    <button type="button" onclick="testModelConnection()" class="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                        </svg>
+                                        测试连接
+                                    </button>
+                                ` : ''}
+                                <div class="flex-1"></div>
+                                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">取消</button>
+                                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">保存</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function AgentConfigModal() {
+            if (!showAgentModal || !editingAgent) return '';
+
+            const system = agentConfigs[currentSystem];
+            const agent = system.agents.find(a => a.id === editingAgent);
+            if (!agent) return '';
+
+            return `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()">
+                        <div class="p-6 border-b border-slate-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-slate-900">${agent.name}</h2>
+                                    <p class="text-sm text-slate-500 mt-1">配置智能体使用的模型</p>
+                                </div>
+                                <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-lg">
+                                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-6">
+                            <div class="mb-6 p-4 bg-slate-50 rounded-xl">
+                                <h3 class="font-medium text-slate-900 mb-1">${agent.name}</h3>
+                                <p class="text-sm text-slate-500">${agent.description}</p>
+                                <div class="mt-2">
+                                    <span class="mono text-xs text-slate-400">${agent.id}</span>
+                                </div>
+                            </div>
+
+                            <form onsubmit="saveAgentConfig(event)">
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-slate-700 mb-3">选择模型</label>
+                                    <div class="space-y-3">
+                                        ${Object.values(modelConfigs).map(model => {
+                                            const badgeStyle = getModelBadgeStyle(model.id);
+                                            const isSelected = agent.model === model.id;
+                                            return `
+                                                <label class="flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${isSelected ? 'border-primary-500 bg-primary-50' : 'border-slate-200 hover:border-slate-300'}">
+                                                    <input type="radio" name="agentModel" value="${model.id}" ${isSelected ? 'checked' : ''} class="hidden" onchange="render()">
+                                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: ${badgeStyle.bg}20">
+                                                        <span class="text-sm font-bold" style="color: ${badgeStyle.bg}">${model.name.charAt(0)}</span>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="font-medium text-slate-900">${model.name}</span>
+                                                            ${getStatusDot(model.status)}
+                                                        </div>
+                                                        <div class="text-xs text-slate-500 mt-0.5">${model.provider}</div>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        ${model.capabilities.map(cap => `
+                                                            <span class="px-2 py-0.5 bg-white border border-slate-200 text-slate-500 rounded text-xs">${cap}</span>
+                                                        `).join('')}
+                                                    </div>
+                                                    ${isSelected ? `
+                                                        <svg class="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                        </svg>
+                                                    ` : ''}
+                                                </label>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-3 pt-4 border-t border-slate-200">
+                                    <button type="button" onclick="testAgentModel()" class="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                        </svg>
+                                        测试调用
+                                    </button>
+                                    <div class="flex-1"></div>
+                                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">取消</button>
+                                    <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">保存配置</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function UsageStats() {
+            const system = agentConfigs[currentSystem];
+            const modelUsage = {};
+
+            system.agents.forEach(agent => {
+                modelUsage[agent.model] = (modelUsage[agent.model] || 0) + 1;
+            });
+
+            return `
+                <div class="bg-white rounded-2xl p-6 card-shadow mt-6">
+                    <h3 class="text-sm font-semibold text-slate-900 mb-4">模型使用统计</h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        ${Object.entries(modelUsage).map(([modelId, count]) => {
+                            const model = modelConfigs[modelId];
+                            const badgeStyle = getModelBadgeStyle(modelId);
+                            return `
+                                <div class="p-4 bg-slate-50 rounded-xl">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: ${badgeStyle.bg}20">
+                                            <span class="text-xs font-bold" style="color: ${badgeStyle.bg}">${model?.name?.charAt(0) || '?'}</span>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-slate-900 text-sm">${model?.name || modelId}</div>
+                                            <div class="text-xs text-slate-500">${count} 个智能体</div>
+                                        </div>
+                                    </div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
+                                        <div class="h-2 rounded-full" style="width: ${(count / system.agents.length) * 100}%; background: ${badgeStyle.bg}"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Modal Handlers
+        function openAddModelModal() {
+            editingModel = '__new__';
+            showModelModal = true;
+            render();
+        }
+
+        function openEditModelModal(modelId) {
+            editingModel = modelId;
+            showModelModal = true;
+            render();
+        }
+
+        function openEditAgentModal(agentId) {
+            editingAgent = agentId;
+            showAgentModal = true;
+            render();
+        }
+
+        function closeModal() {
+            showModelModal = false;
+            showAgentModal = false;
+            editingModel = null;
+            editingAgent = null;
+            render();
+        }
+
+        function saveModelConfig(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+
+            const capabilities = [];
+            form.querySelectorAll('input[name="capabilities"]:checked').forEach(cb => {
+                capabilities.push(cb.value);
+            });
+
+            const modelData = {
+                id: formData.get('modelId'),
+                name: formData.get('modelName'),
+                provider: formData.get('provider'),
+                baseUrl: formData.get('baseUrl'),
+                apiKey: formData.get('apiKey'),
+                capabilities: capabilities,
+                maxTokens: parseInt(formData.get('maxTokens')) || 32000,
+                temperature: parseFloat(formData.get('temperature')) || 0.7,
+                status: 'online'
+            };
+
+            modelConfigs[modelData.id] = modelData;
+            closeModal();
+            alert('模型配置保存成功！');
+        }
+
+        function saveAgentConfig(event) {
+            event.preventDefault();
+            const form = event.target;
+            const selectedModel = form.querySelector('input[name="agentModel"]:checked').value;
+
+            const system = agentConfigs[currentSystem];
+            const agent = system.agents.find(a => a.id === editingAgent);
+            if (agent) {
+                agent.model = selectedModel;
+                agent.modelName = modelConfigs[selectedModel].name;
+            }
+
+            closeModal();
+            alert('智能体模型配置保存成功！');
+        }
+
+        function testModelConnection() {
+            alert('正在测试连接...\n连接成功！');
+        }
+
+        function testAgentModel() {
+            alert('正在测试模型调用...\n调用成功！');
+        }
+
+        // Render
+        function render() {
+            document.getElementById('app').innerHTML = `
+                ${Header()}
+                ${SystemTabs()}
+                <div class="max-w-7xl mx-auto px-6 py-8">
+                    ${GlobalModelsSection()}
+                    ${AgentListSection()}
+                    ${UsageStats()}
+                </div>
+                ${ModelConfigModal()}
+                ${AgentConfigModal()}
+            `;
+        }
+
+        // Initialize
+        render();
+    </script>
+</body>
+</html>

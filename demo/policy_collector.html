@@ -144,65 +144,185 @@
     <div id="app"></div>
 
     <script>
-        // API Configuration
-        const API_BASE = `${window.location.protocol}//${window.location.host}/api/v1`;
+        // ========== 数据存储层 (localStorage 模拟) ==========
+        const STORAGE_KEY = 'policy_collector_data';
 
-        // State
-        let policies = [];
-        let currentView = 'search';
+        function getStoredPolicies() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function savePolicies(policies) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(policies));
+        }
+
+        function generateCitationId() {
+            const prefix = 'PC';
+            const timestamp = Date.now().toString(36).toUpperCase();
+            const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+            return `${prefix}-${timestamp}-${random}`;
+        }
+
+        function initSampleData() {
+            const policies = getStoredPolicies();
+            if (policies.length === 0) {
+                const samplePolicies = [
+                    {
+                        citation_id: 'PC-L4X7K2-ABC',
+                        title: '关于促进新一代人工智能产业发展的若干措施',
+                        source: '工业和信息化部',
+                        source_url: 'https://www.miit.gov.cn/',
+                        publish_date: '2026-03-15',
+                        effective_date: '2026-04-01',
+                        policy_type: '规范性文件',
+                        verification_status: 'verified',
+                        content: '为加快推动人工智能产业高质量发展，制定以下措施：\n\n一、加强核心技术攻关\n加大深度学习、自然语言处理、计算机视觉等核心算法研发投入，建立产学研协同创新机制。\n\n二、推进应用场景落地\n在智能制造、智慧城市、医疗健康、交通运输等领域打造100个以上典型应用场景。\n\n三、培育龙头企业\n培育10家以上具有国际竞争力的人工智能领军企业，支持中小企业快速发展。\n\n四、加强人才培养\n建立人工智能人才培养体系，年培训专业人才不少于10万人次。',
+                        excerpt: '加快推动人工智能产业高质量发展，在智能制造、智慧城市、医疗健康等领域打造典型应用场景...',
+                        relatedPolicies: [],
+                        customerActions: [],
+                        created_at: '2026-03-15T10:00:00Z',
+                        updated_at: '2026-03-16T14:30:00Z'
+                    },
+                    {
+                        citation_id: 'PC-M5Y8L3-BCD',
+                        title: '制造业数字化转型三年行动计划（2025-2027）',
+                        source: '国务院',
+                        source_url: 'https://www.gov.cn/',
+                        publish_date: '2026-02-28',
+                        effective_date: '2026-03-01',
+                        policy_type: '行政法规',
+                        verification_status: 'verified',
+                        content: '为贯彻落实制造强国战略，加快制造业数字化转型，制定本行动计划。\n\n一、总体目标\n到2027年，规模以上工业企业数字化转型实现全覆盖，关键工序数控化率达到75%。\n\n二、重点任务\n（一）推进智能制造示范工厂建设\n（二）加快工业互联网平台应用\n（三）推动中小企业数字化转型\n（四）加强数字化转型服务支撑\n\n三、保障措施\n（一）加大财政支持力度\n（二）完善金融服务体系\n（三）强化人才培养和引进',
+                        excerpt: '到2027年规模以上工业企业数字化转型实现全覆盖，关键工序数控化率达到75%...',
+                        relatedPolicies: [],
+                        customerActions: [],
+                        created_at: '2026-02-28T08:00:00Z',
+                        updated_at: '2026-03-01T09:00:00Z'
+                    },
+                    {
+                        citation_id: 'PC-N6Z9M4-CDE',
+                        title: '中小企业数字化转型专项资金管理办法',
+                        source: '财政部',
+                        source_url: 'https://www.mof.gov.cn/',
+                        publish_date: '2026-04-20',
+                        effective_date: '2026-05-01',
+                        policy_type: '部门规章',
+                        verification_status: 'pending',
+                        content: '',
+                        excerpt: '设立中小企业数字化转型专项资金，支持中小企业加快数字化转型步伐...',
+                        relatedPolicies: [],
+                        customerActions: [],
+                        created_at: '2026-05-06T10:00:00Z',
+                        updated_at: '2026-05-06T10:00:00Z'
+                    },
+                    {
+                        citation_id: 'PC-O7A0N5-DEF',
+                        title: '智能制造专项申报指南',
+                        source: '工业和信息化部',
+                        source_url: 'https://www.miit.gov.cn/',
+                        publish_date: '2026-05-01',
+                        effective_date: '2026-05-15',
+                        policy_type: '规范性文件',
+                        verification_status: 'pending',
+                        content: '',
+                        excerpt: '2026年度智能制造专项申报工作启动，重点支持智能工厂、数字化车间建设...',
+                        relatedPolicies: [],
+                        customerActions: [],
+                        created_at: '2026-05-07T14:00:00Z',
+                        updated_at: '2026-05-07T14:00:00Z'
+                    }
+                ];
+                savePolicies(samplePolicies);
+            }
+        }
+
+        // ========== 状态管理 ==========
+        let currentView = 'dashboard';
         let currentPolicy = null;
+        let editingPolicy = null;
         let searchQuery = '';
         let selectedType = 'all';
         let sortBy = 'relevance';
         let isLoading = false;
+        let verifyPolicy = null;
 
-        // API Functions
-        async function fetchPolicies(query = '', policyType = null, limit = 20) {
-            try {
-                let url = `${API_BASE}/policies/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-                if (policyType && policyType !== 'all') {
-                    url += `&policy_type=${encodeURIComponent(policyType)}`;
-                }
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Search failed');
-                const data = await response.json();
-                return data.results || [];
-            } catch (error) {
-                console.error('Failed to fetch policies:', error);
-                return [];
-            }
+        // ========== 数据操作函数 ==========
+        function getAllPolicies() {
+            return getStoredPolicies();
         }
 
-        async function fetchPolicyDetail(citationId) {
-            try {
-                const response = await fetch(`${API_BASE}/policies/${citationId}?include_relations=true&include_customer_actions=true`);
-                if (!response.ok) throw new Error('Failed to fetch policy');
-                const data = await response.json();
-                return data.document || null;
-            } catch (error) {
-                console.error('Failed to fetch policy detail:', error);
-                return null;
-            }
+        function getPolicyById(citationId) {
+            const policies = getStoredPolicies();
+            return policies.find(p => p.citation_id === citationId) || null;
         }
 
-        async function fetchUnverifiedQueue(limit = 20) {
-            try {
-                const response = await fetch(`${API_BASE}/policies/queue/unverified?limit=${limit}`);
-                if (!response.ok) throw new Error('Failed to fetch queue');
-                const data = await response.json();
-                return { total: data.total, policies: data.results || [] };
-            } catch (error) {
-                console.error('Failed to fetch queue:', error);
-                return { total: 0, policies: [] };
-            }
+        function getPendingPolicies() {
+            const policies = getStoredPolicies();
+            return policies.filter(p => p.verification_status === 'pending');
         }
 
-        async function loadPolicies() {
-            if (isLoading) return;
-            isLoading = true;
-            policies = await fetchPolicies(searchQuery, selectedType);
-            isLoading = false;
-            render();
+        function getVerifiedPolicies() {
+            const policies = getStoredPolicies();
+            return policies.filter(p => p.verification_status === 'verified');
+        }
+
+        function createPolicy(policyData) {
+            const policies = getStoredPolicies();
+            const newPolicy = {
+                citation_id: generateCitationId(),
+                ...policyData,
+                verification_status: 'pending',
+                content: '',
+                excerpt: policyData.title,
+                relatedPolicies: [],
+                customerActions: [],
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            policies.unshift(newPolicy);
+            savePolicies(policies);
+            return newPolicy;
+        }
+
+        function updatePolicy(citationId, updates) {
+            const policies = getStoredPolicies();
+            const index = policies.findIndex(p => p.citation_id === citationId);
+            if (index !== -1) {
+                policies[index] = {
+                    ...policies[index],
+                    ...updates,
+                    updated_at: new Date().toISOString()
+                };
+                savePolicies(policies);
+                return policies[index];
+            }
+            return null;
+        }
+
+        function doVerifyPolicy(citationId, approved, verifiedContent = '') {
+            const updates = {
+                verification_status: approved ? 'verified' : 'rejected'
+            };
+            if (verifiedContent) {
+                updates.content = verifiedContent;
+            }
+            return updatePolicy(citationId, updates);
+        }
+
+        function searchPolicies(query, policyType = null) {
+            let policies = getAllPolicies();
+            if (policyType && policyType !== 'all') {
+                policies = policies.filter(p => p.policy_type === policyType);
+            }
+            if (query) {
+                const lowerQuery = query.toLowerCase();
+                policies = policies.filter(p =>
+                    p.title.toLowerCase().includes(lowerQuery) ||
+                    p.source.toLowerCase().includes(lowerQuery) ||
+                    (p.content && p.content.toLowerCase().includes(lowerQuery))
+                );
+            }
+            return policies;
         }
 
         // Utility Functions
@@ -253,8 +373,8 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <h1 class="text-xl font-bold text-slate-900">政策搜集智能体</h1>
-                                    <p class="text-xs text-slate-500">PolicyCollector · 精准政策匹配与溯源</p>
+                                    <h1 class="text-xl font-bold text-slate-900">政策管理系统</h1>
+                                    <p class="text-xs text-slate-500">PolicyCollector · 政策登记 · 校验 · 检索</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-6">
@@ -305,91 +425,282 @@
             }, 200);
         }
 
-        function SearchView() {
-            const filteredPolicies = policies.filter(p => {
-                if (selectedType !== 'all' && p.policy_type !== selectedType) return false;
-                if (searchQuery && !p.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                return true;
-            }).sort((a, b) => {
-                if (sortBy === 'publish_date') {
-                    return new Date(b.publish_date) - new Date(a.publish_date);
-                }
-                return b.relevance_score - a.relevance_score;
-            });
+        function DashboardView() {
+            const allPolicies = getAllPolicies();
+            const pendingPolicies = getPendingPolicies();
+            const recentPolicies = allPolicies.slice(0, 3);
 
             return `
                 <div class="gradient-bg min-h-screen">
-                    <div class="max-w-7xl mx-auto px-6 py-12">
-                        <!-- Hero Section -->
-                        <div class="text-center mb-12">
-                            <h2 class="text-4xl font-bold text-slate-900 mb-4">
-                                输入客户行业 + 产品
-                                <span class="text-primary-600">精准匹配</span>相关政策
-                            </h2>
-                            <p class="text-lg text-slate-600 mb-8">
-                                基于 RAG 知识库检索，返回完整原文引用，100% 人工校验保证准确性
-                            </p>
+                    <div class="max-w-7xl mx-auto px-6 py-8">
+                        <!-- Page Header -->
+                        <div class="mb-8">
+                            <h2 class="text-2xl font-bold text-slate-900 mb-2">政策管理</h2>
+                            <p class="text-slate-600">管理政策知识库，支持登记、校验与检索</p>
+                        </div>
 
-                            <!-- Search Box -->
-                            <div class="max-w-3xl mx-auto">
-                                <div class="bg-white rounded-2xl shadow-lg p-2 flex items-center gap-2">
-                                    <div class="flex-1 flex items-center gap-3 px-4">
+                        <!-- Quick Actions + Search -->
+                        <div class="grid grid-cols-3 gap-6 mb-8">
+                            <!-- Quick Actions -->
+                            <div class="col-span-1 bg-white rounded-2xl p-6 card-shadow">
+                                <h3 class="font-semibold text-slate-900 mb-4">快捷操作</h3>
+                                <div class="space-y-3">
+                                    <button onclick="navigateTo('discover')" class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
+                                        <div class="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                            </svg>
+                                        </div>
+                                        <div class="text-left">
+                                            <div class="font-medium">登记政策</div>
+                                            <div class="text-xs text-slate-500">添加新政策到知识库</div>
+                                        </div>
+                                    </button>
+                                    <button onclick="navigateTo('queue')" class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
+                                        <div class="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="text-left">
+                                            <div class="font-medium">校验队列</div>
+                                            <div class="text-xs text-slate-500">待人工核对 ${pendingPolicies.length} 条</div>
+                                        </div>
+                                    </button>
+                                    <button onclick="navigateTo('search')" class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
+                                        <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="text-left">
+                                            <div class="font-medium">政策检索</div>
+                                            <div class="text-xs text-slate-500">RAG 智能匹配</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Search -->
+                            <div class="col-span-2 bg-white rounded-2xl p-6 card-shadow">
+                                <h3 class="font-semibold text-slate-900 mb-4">政策检索</h3>
+                                <div class="flex items-center gap-3">
+                                    <div class="flex-1 flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl">
                                         <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                         </svg>
                                         <input
                                             type="text"
-                                            placeholder="例如：制造业 工业机器人"
+                                            id="dashboardSearchInput"
+                                            placeholder="输入客户行业 + 产品，精准匹配政策..."
                                             value="${searchQuery}"
                                             oninput="searchQuery = this.value"
-                                            onkeydown="if(event.key==='Enter') performSearch()"
-                                            class="w-full py-3 text-lg outline-none placeholder-slate-400"
+                                            onkeydown="if(event.key==='Enter') doDashboardSearch()"
+                                            class="w-full bg-transparent outline-none placeholder-slate-400"
                                         >
                                     </div>
-                                    <button onclick="performSearch()" class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-xl font-medium transition-colors">
-                                        搜索政策
+                                    <button onclick="doDashboardSearch()" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-medium transition-colors">
+                                        搜索
                                     </button>
                                 </div>
-
-                                <!-- Quick Filters -->
-                                <div class="flex items-center justify-center gap-4 mt-6">
-                                    <span class="text-sm text-slate-500">快速筛选：</span>
-                                    <button onclick="selectedType = 'all'; loadPolicies()" class="text-sm px-3 py-1 rounded-full ${selectedType === 'all' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                <div class="flex items-center gap-4 mt-4">
+                                    <span class="text-xs text-slate-500">快速筛选：</span>
+                                    <button onclick="selectedType = 'all'; doDashboardSearch()" class="text-xs px-3 py-1 rounded-full ${selectedType === 'all' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
                                         全部
                                     </button>
-                                    <button onclick="selectedType = '规范性文件'; loadPolicies()" class="text-sm px-3 py-1 rounded-full ${selectedType === '规范性文件' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                    <button onclick="selectedType = '规范性文件'; doDashboardSearch()" class="text-xs px-3 py-1 rounded-full ${selectedType === '规范性文件' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
                                         规范性文件
                                     </button>
-                                    <button onclick="selectedType = '部门规章'; loadPolicies()" class="text-sm px-3 py-1 rounded-full ${selectedType === '部门规章' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                    <button onclick="selectedType = '部门规章'; doDashboardSearch()" class="text-xs px-3 py-1 rounded-full ${selectedType === '部门规章' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
                                         部门规章
                                     </button>
-                                    <button onclick="selectedType = '行政法规'; loadPolicies()" class="text-sm px-3 py-1 rounded-full ${selectedType === '行政法规' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                    <button onclick="selectedType = '行政法规'; doDashboardSearch()" class="text-xs px-3 py-1 rounded-full ${selectedType === '行政法规' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
                                         行政法规
                                     </button>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Recent Policies + Verification Tasks -->
+                        <div class="grid grid-cols-2 gap-6">
+                            <!-- Recent Policies -->
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="font-semibold text-slate-900">最近添加</h3>
+                                    <button onclick="navigateTo('search')" class="text-sm text-primary-600 hover:text-primary-700 font-medium">查看全部</button>
+                                </div>
+                                <div class="space-y-3">
+                                    ${recentPolicies.length === 0 ? `
+                                        <div class="text-center py-8 text-slate-500">
+                                            <p>暂无政策</p>
+                                            <button onclick="navigateTo('discover')" class="mt-2 text-primary-600 hover:text-primary-700 text-sm font-medium">
+                                                登记第一条政策
+                                            </button>
+                                        </div>
+                                    ` : recentPolicies.map(policy => `
+                                        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" onclick="showPolicyDetail('${policy.citation_id}')">
+                                            <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    ${getStatusBadge(policy.verification_status)}
+                                                    ${getRelationBadge(policy.policy_type)}
+                                                </div>
+                                                <p class="text-sm font-medium text-slate-900 truncate">${policy.title}</p>
+                                                <p class="text-xs text-slate-500">${policy.source} · ${policy.publish_date}</p>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Verification Tasks -->
+                            <div class="bg-white rounded-2xl p-6 card-shadow">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="font-semibold text-slate-900">待办校验</h3>
+                                    <button onclick="navigateTo('queue')" class="text-sm text-primary-600 hover:text-primary-700 font-medium">查看全部</button>
+                                </div>
+                                <div class="space-y-3">
+                                    ${pendingPolicies.length === 0 ? `
+                                        <div class="text-center py-8 text-slate-500">
+                                            <svg class="w-12 h-12 mx-auto mb-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            <p>所有政策已校验完成</p>
+                                        </div>
+                                    ` : pendingPolicies.slice(0, 3).map(policy => `
+                                        <div class="p-3 ${policy.verification_status === 'pending' ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'} rounded-xl">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm font-medium text-slate-900 truncate flex-1">${policy.title}</span>
+                                                ${getStatusBadge(policy.verification_status)}
+                                            </div>
+                                            <div class="flex items-center justify-between text-xs text-slate-500">
+                                                <span>登记于 ${formatDate(policy.created_at)}</span>
+                                                <button onclick="event.stopPropagation(); startVerify('${policy.citation_id}')" class="text-primary-600 hover:text-primary-700 font-medium">
+                                                    校验 →
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                ${pendingPolicies.length > 0 ? `
+                                <button onclick="navigateTo('queue')" class="w-full mt-4 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-xl text-sm font-medium transition-colors">
+                                    开始校验
+                                </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function doDashboardSearch() {
+            navigateTo('search');
+        }
+
+        function SearchView() {
+            const searchResults = searchPolicies(searchQuery, selectedType);
+            const sortedResults = [...searchResults].sort((a, b) => {
+                if (sortBy === 'publish_date') {
+                    return new Date(b.publish_date) - new Date(a.publish_date);
+                }
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
+
+            return `
+                <div class="gradient-bg min-h-screen">
+                    <div class="max-w-7xl mx-auto px-6 py-8">
+                        <!-- Page Header -->
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-900 mb-2">政策检索</h2>
+                                <p class="text-slate-600">基于 RAG 知识库检索，返回完整原文引用</p>
+                            </div>
+                            <button onclick="navigateTo('dashboard')" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                </svg>
+                                返回管理
+                            </button>
+                        </div>
+
+                        <!-- Search Box -->
+                        <div class="max-w-3xl mx-auto mb-6">
+                            <div class="bg-white rounded-2xl shadow-lg p-2 flex items-center gap-2">
+                                <div class="flex-1 flex items-center gap-3 px-4">
+                                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        id="searchInput"
+                                        placeholder="例如：制造业 工业机器人"
+                                        value="${searchQuery}"
+                                        oninput="searchQuery = this.value"
+                                        onkeydown="if(event.key==='Enter') doSearch()"
+                                        class="w-full py-3 text-lg outline-none placeholder-slate-400"
+                                    >
+                                </div>
+                                <button onclick="doSearch()" class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-xl font-medium transition-colors">
+                                    搜索政策
+                                </button>
+                            </div>
+
+                            <!-- Quick Filters -->
+                            <div class="flex items-center justify-center gap-4 mt-6">
+                                <span class="text-sm text-slate-500">快速筛选：</span>
+                                <button onclick="selectedType = 'all'; doSearch()" class="text-sm px-3 py-1 rounded-full ${selectedType === 'all' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                    全部
+                                </button>
+                                <button onclick="selectedType = '规范性文件'; doSearch()" class="text-sm px-3 py-1 rounded-full ${selectedType === '规范性文件' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                    规范性文件
+                                </button>
+                                <button onclick="selectedType = '部门规章'; doSearch()" class="text-sm px-3 py-1 rounded-full ${selectedType === '部门规章' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                    部门规章
+                                </button>
+                                <button onclick="selectedType = '行政法规'; doSearch()" class="text-sm px-3 py-1 rounded-full ${selectedType === '行政法规' ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition-colors">
+                                    行政法规
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Results Stats -->
                         <div class="flex items-center justify-between mb-6">
                             <div class="text-sm text-slate-600">
-                               找到 <span class="font-semibold text-slate-900">${filteredPolicies.length}</span> 条相关政策
+                               ${searchQuery ? `找到 <span class="font-semibold text-slate-900">${sortedResults.length}</span> 条相关政策` : `共 <span class="font-semibold text-slate-900">${sortedResults.length}</span> 条政策`}
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="text-sm text-slate-500">排序：</span>
                                 <button onclick="sortBy = 'relevance'; render()" class="text-sm px-3 py-1 rounded-lg ${sortBy === 'relevance' ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-100'}">
-                                    相关性
+                                    最新
                                 </button>
                                 <button onclick="sortBy = 'publish_date'; render()" class="text-sm px-3 py-1 rounded-lg ${sortBy === 'publish_date' ? 'bg-slate-200 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-100'}">
                                     发布时间
                                 </button>
                             </div>
-                            ${isLoading ? '<span class="text-sm text-primary-600">加载中...</span>' : ''}
                         </div>
 
                         <!-- Results List -->
                         <div class="space-y-4">
-                            ${filteredPolicies.map(policy => `
+                            ${sortedResults.length === 0 ? `
+                                <div class="bg-white rounded-2xl p-12 text-center card-shadow">
+                                    <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    <h3 class="text-lg font-medium text-slate-900 mb-2">暂无政策数据</h3>
+                                    <p class="text-slate-500 mb-4">请先登记政策或调整筛选条件</p>
+                                    <button onclick="navigateTo('discover')" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                        </svg>
+                                        登记政策
+                                    </button>
+                                </div>
+                            ` : sortedResults.map(policy => `
                                 <div class="policy-card bg-white rounded-2xl p-6 card-shadow cursor-pointer" onclick="showPolicyDetail('${policy.citation_id}')">
                                     <div class="flex items-start justify-between gap-4">
                                         <div class="flex-1">
@@ -419,48 +730,19 @@
                                                 </span>
                                             </div>
                                         </div>
-                                        <div class="text-right">
-                                            <div class="text-2xl font-bold text-primary-600">${(policy.relevance_score * 100).toFixed(0)}%</div>
-                                            <div class="text-xs text-slate-500">匹配度</div>
-                                        </div>
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
-
-                        <!-- Info Cards -->
-                        <div class="grid grid-cols-3 gap-6 mt-12">
-                            <div class="bg-white rounded-2xl p-6 card-shadow">
-                                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-                                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                                    </svg>
-                                </div>
-                                <h4 class="font-semibold text-slate-900 mb-2">100% 人工校验</h4>
-                                <p class="text-sm text-slate-600">每条政策均经运营人员核对原文，保证内容准确无误</p>
-                            </div>
-                            <div class="bg-white rounded-2xl p-6 card-shadow">
-                                <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
-                                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                                    </svg>
-                                </div>
-                                <h4 class="font-semibold text-slate-900 mb-2">引用完整原文</h4>
-                                <p class="text-sm text-slate-600">返回政策全文，不摘要、不改写，可直接引用</p>
-                            </div>
-                            <div class="bg-white rounded-2xl p-6 card-shadow">
-                                <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4">
-                                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                                    </svg>
-                                </div>
-                                <h4 class="font-semibold text-slate-900 mb-2">RAG 智能匹配</h4>
-                                <p class="text-sm text-slate-600">基于向量检索+混合召回+语义排序，精准匹配</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             `;
+        }
+
+        function doSearch() {
+            const input = document.getElementById('searchInput');
+            if (input) searchQuery = input.value;
+            render();
         }
 
         function DetailView() {
@@ -471,7 +753,7 @@
                     <div class="max-w-7xl mx-auto px-6 py-8">
                         <!-- Breadcrumb -->
                         <div class="flex items-center gap-2 text-sm mb-6">
-                            <button onclick="navigateTo('search')" class="text-slate-500 hover:text-slate-700">政策检索</button>
+                            <button onclick="navigateTo('dashboard')" class="text-slate-500 hover:text-slate-700">政策管理</button>
                             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
@@ -502,38 +784,39 @@
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                     </svg>
-                                                    发布于 ${formatDate(currentPolicy.publish_date)}
+                                                    发布于 ${currentPolicy.publish_date}
                                                 </span>
                                                 ${currentPolicy.effective_date ? `
                                                 <span class="flex items-center gap-2">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                     </svg>
-                                                    生效于 ${formatDate(currentPolicy.effective_date)}
+                                                    生效于 ${currentPolicy.effective_date}
                                                 </span>
                                                 ` : ''}
                                             </div>
                                         </div>
-                                        <a href="${currentPolicy.source_url || '#'}" target="_blank" class="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                            </svg>
-                                            原文链接
-                                        </a>
-                                    </div>
-
-                                    <!-- Content Tabs -->
-                                    <div class="border-b border-slate-200 mb-6">
-                                        <div class="flex gap-6">
-                                            <button class="pb-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600">政策正文</button>
-                                            <button class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-700">政策条款</button>
+                                        <div class="flex items-center gap-2">
+                                            <button onclick="startEdit('${currentPolicy.citation_id}')" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                </svg>
+                                                编辑
+                                            </button>
+                                            <a href="${currentPolicy.source_url || '#'}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                                </svg>
+                                                原文链接
+                                            </a>
                                         </div>
                                     </div>
 
                                     <!-- Content -->
-                                    <div class="prose prose-slate max-w-none">
+                                    <div class="border-t border-slate-200 pt-6">
+                                        <h3 class="font-semibold text-slate-900 mb-4">政策正文</h3>
                                         <div class="bg-slate-50 rounded-xl p-6 text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                            ${currentPolicy.content}
+                                            ${currentPolicy.content || '暂无正文内容，请在审核页面补充正文。'}
                                         </div>
                                     </div>
                                 </div>
@@ -541,79 +824,48 @@
 
                             <!-- Sidebar -->
                             <div class="space-y-6">
-                                <!-- Related Policies -->
-                                ${currentPolicy.relatedPolicies && currentPolicy.relatedPolicies.length > 0 ? `
+                                <!-- Policy Info -->
                                 <div class="bg-white rounded-2xl p-6 card-shadow">
-                                    <h3 class="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                        <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-                                        </svg>
-                                        关联政策
-                                    </h3>
-                                    <div class="space-y-3">
-                                        ${currentPolicy.relatedPolicies.map(p => `
-                                            <div class="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer">
-                                                <div class="flex items-start justify-between gap-2 mb-1">
-                                                    <span class="mono text-xs text-slate-400">${p.citation_id}</span>
-                                                    ${getRelationBadge(p.relation)}
-                                                </div>
-                                                <p class="text-sm font-medium text-slate-900 mb-1">${p.title}</p>
-                                                <div class="text-xs text-slate-500">匹配度 ${(p.score * 100).toFixed(0)}%</div>
-                                            </div>
-                                        `).join('')}
+                                    <h3 class="font-semibold text-slate-900 mb-4">基本信息</h3>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">编号</span>
+                                            <span class="mono text-slate-900">${currentPolicy.citation_id}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">类型</span>
+                                            <span>${currentPolicy.policy_type}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">状态</span>
+                                            ${getStatusBadge(currentPolicy.verification_status)}
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">登记时间</span>
+                                            <span>${formatDate(currentPolicy.created_at)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">更新时间</span>
+                                            <span>${formatDate(currentPolicy.updated_at)}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                ` : ''}
-
-                                <!-- Customer Actions -->
-                                ${currentPolicy.customerActions && currentPolicy.customerActions.length > 0 ? `
-                                <div class="bg-white rounded-2xl p-6 card-shadow">
-                                    <h3 class="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                        </svg>
-                                        客户实践
-                                    </h3>
-                                    <div class="space-y-3">
-                                        ${currentPolicy.customerActions.map(action => `
-                                            <div class="p-3 bg-green-50 rounded-xl">
-                                                <div class="flex items-center justify-between mb-2">
-                                                    <span class="text-sm font-medium text-slate-900">${action.customer}</span>
-                                                    ${getActionBadge(action.action)}
-                                                </div>
-                                                <p class="text-xs text-slate-600 mb-2">${action.industry}</p>
-                                                <p class="text-sm text-slate-700 mb-2">${action.detail}</p>
-                                                <div class="flex items-center justify-between text-xs text-slate-500">
-                                                    <span>引用第 ${action.section + 1} 条</span>
-                                                    <span>${formatDate(action.date)}</span>
-                                                </div>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                                ` : ''}
 
                                 <!-- Quick Actions -->
                                 <div class="bg-white rounded-2xl p-6 card-shadow">
                                     <h3 class="font-semibold text-slate-900 mb-4">快捷操作</h3>
                                     <div class="space-y-2">
-                                        <button class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
+                                        <button onclick="copyCitation('${currentPolicy.citation_id}', '${currentPolicy.title.replace(/'/g, "\\'")}')" class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
                                             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                                             </svg>
                                             复制引用格式
                                         </button>
-                                        <button class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
-                                            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                            </svg>
-                                            导出 PDF
-                                        </button>
-                                        <button class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
+                                        <button onclick="startEdit('${currentPolicy.citation_id}')" class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-sm text-slate-700 transition-colors">
                                             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                             </svg>
-                                            标记关联
+                                            修改政策
                                         </button>
                                     </div>
                                 </div>
@@ -624,25 +876,41 @@
             `;
         }
 
+        function copyCitation(citationId, title) {
+            const text = `[${citationId}] ${title}`;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('引用格式已复制到剪贴板');
+            });
+        }
+
         function DiscoverView() {
             return `
                 <div class="bg-surface min-h-screen">
                     <div class="max-w-4xl mx-auto px-6 py-12">
-                        <div class="text-center mb-8">
-                            <h2 class="text-3xl font-bold text-slate-900 mb-4">政策发现登记</h2>
-                            <p class="text-slate-600">登记发现的政策 URL，系统将引导您完成后续补充与校验流程</p>
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-8">
+                            <div>
+                                <h2 class="text-3xl font-bold text-slate-900 mb-2">政策登记</h2>
+                                <p class="text-slate-600">登记发现的政策 URL，系统将引导您完成后续补充与校验流程</p>
+                            </div>
+                            <button onclick="navigateTo('dashboard')" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                </svg>
+                                返回管理
+                            </button>
                         </div>
 
                         <div class="bg-white rounded-2xl p-8 card-shadow">
-                            <form class="space-y-6">
+                            <form id="policyForm" class="space-y-6">
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-2">政策标题 *</label>
-                                    <input type="text" placeholder="请输入政策完整标题" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <input type="text" id="policyTitle" placeholder="请输入政策完整标题" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                 </div>
 
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-2">来源 URL *</label>
-                                    <input type="url" placeholder="https://www.miit.gov.cn/..." class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <input type="url" id="policyUrl" placeholder="https://www.miit.gov.cn/..." required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                     <div class="mt-2 flex items-start gap-2 text-sm">
                                         <svg class="w-4 h-4 text-amber-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -654,33 +922,38 @@
                                 <div class="grid grid-cols-2 gap-6">
                                     <div>
                                         <label class="block text-sm font-medium text-slate-700 mb-2">发布日期 *</label>
-                                        <input type="date" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <input type="date" id="policyPublishDate" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-slate-700 mb-2">生效日期</label>
-                                        <input type="date" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <input type="date" id="policyEffectiveDate" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                     </div>
                                 </div>
 
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-2">发布机构 *</label>
-                                    <input type="text" placeholder="例如：工业和信息化部" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <input type="text" id="policySource" placeholder="例如：工业和信息化部" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                 </div>
 
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700 mb-2">政策类型 *</label>
-                                    <select class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white">
+                                    <select id="policyType" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white">
                                         <option value="">请选择政策类型</option>
-                                        <option value="law">法律</option>
-                                        <option value="regulation">行政法规</option>
-                                        <option value="rule">部门规章</option>
-                                        <option value="normative">规范性文件</option>
-                                        <option value="policy">政策</option>
+                                        <option value="法律">法律</option>
+                                        <option value="行政法规">行政法规</option>
+                                        <option value="部门规章">部门规章</option>
+                                        <option value="规范性文件">规范性文件</option>
+                                        <option value="政策">政策</option>
                                     </select>
                                 </div>
 
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">政策正文摘要</label>
+                                    <textarea id="policyExcerpt" rows="3" placeholder="请简要描述政策核心内容（选填）" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
+                                </div>
+
                                 <div class="pt-4">
-                                    <button type="button" onclick="alert('政策登记成功！请后续补充正文内容。')" class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-medium transition-colors">
+                                    <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-medium transition-colors">
                                         提交登记
                                     </button>
                                 </div>
@@ -691,9 +964,9 @@
                         <div class="mt-8 p-4 bg-blue-50 rounded-xl">
                             <h4 class="font-medium text-blue-900 mb-2">登记后流程</h4>
                             <ol class="text-sm text-blue-700 space-y-1">
-                                <li>1. 登记元信息（标题、URL、发布时间）→ 系统创建待补充状态</li>
-                                <li>2. 补充政策正文 → 进入人工校验队列</li>
-                                <li>3. 运营人员核对原文 → 校验通过后允许检索</li>
+                                <li>1. 登记元信息（标题、URL、发布时间）→ 系统创建待校验状态</li>
+                                <li>2. 进入校验队列 → 运营人员核对原文</li>
+                                <li>3. 校验通过后 → 补充政策正文 → 允许检索</li>
                                 <li>4. Relation Agent 自动发现关联 → 丰富政策关系网络</li>
                             </ol>
                         </div>
@@ -702,8 +975,31 @@
             `;
         }
 
-        async function QueueView() {
-            const { policies: unverifiedPolicies } = await fetchUnverifiedQueue();
+        function handlePolicyFormSubmit(e) {
+            e.preventDefault();
+            const formData = {
+                title: document.getElementById('policyTitle').value,
+                source_url: document.getElementById('policyUrl').value,
+                publish_date: document.getElementById('policyPublishDate').value,
+                effective_date: document.getElementById('policyEffectiveDate').value || null,
+                source: document.getElementById('policySource').value,
+                policy_type: document.getElementById('policyType').value,
+                excerpt: document.getElementById('policyExcerpt').value || document.getElementById('policyTitle').value
+            };
+
+            if (!formData.title || !formData.source_url || !formData.publish_date || !formData.source || !formData.policy_type) {
+                alert('请填写必填项');
+                return;
+            }
+
+            const newPolicy = createPolicy(formData);
+            alert(`政策登记成功！\n\n编号：${newPolicy.citation_id}\n标题：${newPolicy.title}\n\n请进入校验队列补充政策正文并完成校验。`);
+            navigateTo('queue');
+        }
+
+        function QueueView() {
+            const pendingPolicies = getPendingPolicies();
+            const verifiedPolicies = getVerifiedPolicies();
 
             return `
                 <div class="bg-surface min-h-screen">
@@ -711,31 +1007,33 @@
                         <div class="flex items-center justify-between mb-8">
                             <div>
                                 <h2 class="text-3xl font-bold text-slate-900 mb-2">校验队列</h2>
-                                <p class="text-slate-600">待人工核对的政策，共 <span class="font-semibold">${unverifiedPolicies.length}</span> 条</p>
+                                <p class="text-slate-600">待人工核对的政策，共 <span class="font-semibold">${pendingPolicies.length}</span> 条</p>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <button class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
-                                    批量校验
-                                </button>
-                                <button class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">
-                                    开始校验
-                                </button>
-                            </div>
+                            <button onclick="navigateTo('dashboard')" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                </svg>
+                                返回管理
+                            </button>
                         </div>
 
-                        <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                        <!-- Pending Queue -->
+                        <div class="bg-white rounded-2xl card-shadow overflow-hidden mb-8">
+                            <div class="px-6 py-4 border-b border-slate-200 bg-amber-50">
+                                <h3 class="font-semibold text-amber-800">待校验 (${pendingPolicies.length})</h3>
+                            </div>
                             <table class="w-full">
                                 <thead class="bg-slate-50 border-b border-slate-200">
                                     <tr>
-                                        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-900">政策信息</th>
-                                        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-900">发布机构</th>
-                                        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-900">登记时间</th>
-                                        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-900">状态</th>
-                                        <th class="text-right px-6 py-4 text-sm font-semibold text-slate-900">操作</th>
+                                        <th class="text-left px-6 py-3 text-sm font-semibold text-slate-900">政策信息</th>
+                                        <th class="text-left px-6 py-3 text-sm font-semibold text-slate-900">发布机构</th>
+                                        <th class="text-left px-6 py-3 text-sm font-semibold text-slate-900">发布日期</th>
+                                        <th class="text-left px-6 py-3 text-sm font-semibold text-slate-900">登记时间</th>
+                                        <th class="text-right px-6 py-3 text-sm font-semibold text-slate-900">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    ${unverifiedPolicies.length === 0 ? `
+                                    ${pendingPolicies.length === 0 ? `
                                         <tr>
                                             <td colspan="5" class="px-6 py-12 text-center text-slate-500">
                                                 <svg class="w-12 h-12 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -744,22 +1042,23 @@
                                                 当前没有待校验的政策
                                             </td>
                                         </tr>
-                                    ` : unverifiedPolicies.map(policy => `
-                                        <tr class="hover:bg-slate-50 transition-colors">
+                                    ` : pendingPolicies.map(policy => `
+                                        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="startVerify('${policy.citation_id}')">
                                             <td class="px-6 py-4">
                                                 <div class="flex items-center gap-3">
                                                     <span class="mono text-xs text-slate-400">${policy.citation_id}</span>
-                                                    <span class="font-medium text-slate-900">${policy.title}</span>
+                                                    <div>
+                                                        <div class="font-medium text-slate-900">${policy.title}</div>
+                                                        <div class="text-xs text-slate-500">${getRelationBadge(policy.policy_type)}</div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 text-sm text-slate-600">${policy.source}</td>
-                                            <td class="px-6 py-4 text-sm text-slate-600">${formatDate(policy.publish_date)}</td>
-                                            <td class="px-6 py-4">
-                                                ${getStatusBadge(policy.verification_status)}
-                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-600">${policy.publish_date}</td>
+                                            <td class="px-6 py-4 text-sm text-slate-600">${formatDate(policy.created_at)}</td>
                                             <td class="px-6 py-4 text-right">
-                                                <button class="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                                                    核对原文
+                                                <button onclick="event.stopPropagation(); startVerify('${policy.citation_id}')" class="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                                                    核对 →
                                                 </button>
                                             </td>
                                         </tr>
@@ -768,28 +1067,319 @@
                             </table>
                         </div>
 
-                        <!-- Verification Stats -->
-                        <div class="grid grid-cols-4 gap-6 mt-8">
-                            <div class="bg-white rounded-xl p-4 card-shadow">
-                                <div class="text-2xl font-bold text-slate-900">156</div>
-                                <div class="text-sm text-slate-500">已校验政策</div>
+                        <!-- Recently Verified -->
+                        <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                            <div class="px-6 py-4 border-b border-slate-200 bg-emerald-50">
+                                <h3 class="font-semibold text-emerald-800">最近校验 (${verifiedPolicies.length > 10 ? '10+' : verifiedPolicies.length})</h3>
                             </div>
-                            <div class="bg-white rounded-xl p-4 card-shadow">
-                                <div class="text-2xl font-bold text-amber-600">${unverifiedPolicies.length}</div>
-                                <div class="text-sm text-slate-500">待校验</div>
-                            </div>
-                            <div class="bg-white rounded-xl p-4 card-shadow">
-                                <div class="text-2xl font-bold text-slate-900">89%</div>
-                                <div class="text-sm text-slate-500">校验通过率</div>
-                            </div>
-                            <div class="bg-white rounded-xl p-4 card-shadow">
-                                <div class="text-2xl font-bold text-slate-900">2.3天</div>
-                                <div class="text-sm text-slate-500">平均校验周期</div>
-                            </div>
+                            <table class="w-full">
+                                <thead class="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="text-left px-6 py-3 text-sm font-semibold text-slate-900">政策信息</th>
+                                        <th class="text-left px-6 py-3 text-sm font-semibold text-slate-900">发布机构</th>
+                                        <th class="text-left px-6 py-3 text-sm font-semibold text-slate-900">校验时间</th>
+                                        <th class="text-right px-6 py-3 text-sm font-semibold text-slate-900">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    ${verifiedPolicies.slice(0, 5).map(policy => `
+                                        <tr class="hover:bg-slate-50 transition-colors">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="mono text-xs text-slate-400">${policy.citation_id}</span>
+                                                    <span class="font-medium text-slate-900">${policy.title}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-slate-600">${policy.source}</td>
+                                            <td class="px-6 py-4 text-sm text-slate-600">${formatDate(policy.updated_at)}</td>
+                                            <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                                <button onclick="startEdit('${policy.citation_id}')" class="text-slate-600 hover:text-slate-900 text-sm font-medium">
+                                                    编辑
+                                                </button>
+                                                <button onclick="showPolicyDetail('${policy.citation_id}')" class="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                                                    查看
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             `;
+        }
+
+        function startVerify(citationId) {
+            verifyPolicy = getPolicyById(citationId);
+            currentView = 'verify';
+            render();
+        }
+
+        function VerifyView() {
+            if (!verifyPolicy) {
+                return '<div class="p-8 text-center">加载中...</div>';
+            }
+
+            const isPending = verifyPolicy.verification_status === 'pending';
+
+            return `
+                <div class="bg-surface min-h-screen">
+                    <div class="max-w-5xl mx-auto px-6 py-12">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-8">
+                            <div>
+                                <h2 class="text-3xl font-bold text-slate-900 mb-2">${isPending ? '政策校验' : '政策详情'}</h2>
+                                <p class="text-slate-600">
+                                    编号：<span class="mono">${verifyPolicy.citation_id}</span>
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="navigateTo('queue')" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                    </svg>
+                                    返回队列
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Policy Info Card -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <div>
+                                    <h3 class="text-xl font-bold text-slate-900 mb-2">${verifyPolicy.title}</h3>
+                                    <div class="flex items-center gap-4 text-sm text-slate-600">
+                                        <span class="flex items-center gap-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
+                                            </svg>
+                                            ${verifyPolicy.source}
+                                        </span>
+                                        <span>${verifyPolicy.publish_date}</span>
+                                        ${getStatusBadge(verifyPolicy.verification_status)}
+                                        ${getRelationBadge(verifyPolicy.policy_type)}
+                                    </div>
+                                </div>
+                                <a href="${verifyPolicy.source_url || '#'}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                    原文链接
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Content Editor -->
+                        <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                            <h4 class="font-semibold text-slate-900 mb-4">政策正文内容 *</h4>
+                            <p class="text-sm text-slate-500 mb-4">请粘贴或输入政策原文内容，用于 RAG 检索和客户引用</p>
+                            <textarea id="verifyContent" rows="12" placeholder="请在此粘贴政策正文内容..." class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none font-mono text-sm">${verifyPolicy.content || ''}</textarea>
+                        </div>
+
+                        <!-- Verification Actions -->
+                        ${isPending ? `
+                        <div class="bg-white rounded-2xl p-6 card-shadow">
+                            <h4 class="font-semibold text-slate-900 mb-4">校验操作</h4>
+                            <div class="flex items-center gap-4">
+                                <button onclick="handleVerify('${verifyPolicy.citation_id}', true)" class="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    校验通过
+                                </button>
+                                <button onclick="handleVerify('${verifyPolicy.citation_id}', false)" class="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                    校验驳回
+                                </button>
+                                <button onclick="startEdit('${verifyPolicy.citation_id}')" class="flex items-center gap-2 px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-medium transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                    修改信息
+                                </button>
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="bg-white rounded-2xl p-6 card-shadow">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-slate-900 mb-1">已校验</h4>
+                                    <p class="text-sm text-slate-500">校验于 ${formatDate(verifyPolicy.updated_at)}</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <button onclick="startEdit('${verifyPolicy.citation_id}')" class="flex items-center gap-2 px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-medium transition-colors">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                        </svg>
+                                        修改信息
+                                    </button>
+                                    <button onclick="showPolicyDetail('${verifyPolicy.citation_id}')" class="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-colors">
+                                        查看详情
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleVerify(citationId, approved) {
+            const content = document.getElementById('verifyContent').value;
+            if (approved && !content.trim()) {
+                alert('请先填写政策正文内容');
+                return;
+            }
+            doVerifyPolicy(citationId, approved, content);
+            alert(approved ? '政策校验通过！' : '政策已驳回');
+            verifyPolicy = null;
+            navigateTo('queue');
+        }
+
+        function startEdit(citationId) {
+            editingPolicy = getPolicyById(citationId);
+            currentView = 'edit';
+            render();
+        }
+
+        function EditView() {
+            if (!editingPolicy) {
+                return '<div class="p-8 text-center">加载中...</div>';
+            }
+
+            return `
+                <div class="bg-surface min-h-screen">
+                    <div class="max-w-4xl mx-auto px-6 py-12">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-8">
+                            <div>
+                                <h2 class="text-3xl font-bold text-slate-900 mb-2">修改政策</h2>
+                                <p class="text-slate-600">
+                                    编号：<span class="mono">${editingPolicy.citation_id}</span>
+                                </p>
+                            </div>
+                            <button onclick="cancelEdit()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm text-slate-700 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                取消
+                            </button>
+                        </div>
+
+                        <div class="bg-white rounded-2xl p-8 card-shadow">
+                            <form id="editForm" class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">政策标题 *</label>
+                                    <input type="text" id="editTitle" value="${editingPolicy.title}" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">来源 URL *</label>
+                                    <input type="url" id="editUrl" value="${editingPolicy.source_url || ''}" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">发布日期 *</label>
+                                        <input type="date" id="editPublishDate" value="${editingPolicy.publish_date}" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">生效日期</label>
+                                        <input type="date" id="editEffectiveDate" value="${editingPolicy.effective_date || ''}" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">发布机构 *</label>
+                                    <input type="text" id="editSource" value="${editingPolicy.source}" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">政策类型 *</label>
+                                    <select id="editType" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white">
+                                        <option value="法律" ${editingPolicy.policy_type === '法律' ? 'selected' : ''}>法律</option>
+                                        <option value="行政法规" ${editingPolicy.policy_type === '行政法规' ? 'selected' : ''}>行政法规</option>
+                                        <option value="部门规章" ${editingPolicy.policy_type === '部门规章' ? 'selected' : ''}>部门规章</option>
+                                        <option value="规范性文件" ${editingPolicy.policy_type === '规范性文件' ? 'selected' : ''}>规范性文件</option>
+                                        <option value="政策" ${editingPolicy.policy_type === '政策' ? 'selected' : ''}>政策</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">政策正文</label>
+                                    <textarea id="editContent" rows="8" placeholder="请输入政策正文内容" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none font-mono text-sm">${editingPolicy.content || ''}</textarea>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">摘要</label>
+                                    <textarea id="editExcerpt" rows="2" placeholder="政策核心内容摘要" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">${editingPolicy.excerpt || ''}</textarea>
+                                </div>
+
+                                <div class="pt-4 flex items-center gap-4">
+                                    <button type="submit" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-medium transition-colors">
+                                        保存修改
+                                    </button>
+                                    ${editingPolicy.verification_status === 'pending' ? `
+                                    <button type="button" onclick="handleVerifyFromEdit()" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors">
+                                        保存并校验通过
+                                    </button>
+                                    ` : ''}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleEditFormSubmit(e) {
+            e.preventDefault();
+            saveEdit();
+        }
+
+        function saveEdit() {
+            if (!editingPolicy) return;
+
+            const updates = {
+                title: document.getElementById('editTitle').value,
+                source_url: document.getElementById('editUrl').value,
+                publish_date: document.getElementById('editPublishDate').value,
+                effective_date: document.getElementById('editEffectiveDate').value || null,
+                source: document.getElementById('editSource').value,
+                policy_type: document.getElementById('editType').value,
+                content: document.getElementById('editContent').value,
+                excerpt: document.getElementById('editExcerpt').value
+            };
+
+            if (!updates.title || !updates.source_url || !updates.publish_date || !updates.source || !updates.policy_type) {
+                alert('请填写必填项');
+                return;
+            }
+
+            updatePolicy(editingPolicy.citation_id, updates);
+            alert('修改已保存');
+            editingPolicy = null;
+            navigateTo('queue');
+        }
+
+        function handleVerifyFromEdit() {
+            saveEdit();
+            if (editingPolicy === null) {
+                const policies = getPendingPolicies();
+                if (policies.length > 0) {
+                    startVerify(policies[0].citation_id);
+                }
+            }
+        }
+
+        function cancelEdit() {
+            editingPolicy = null;
+            currentView = 'queue';
+            render();
         }
 
         // Navigation
@@ -801,18 +1391,10 @@
             setTimeout(initSystemNavSlider, 100);
         }
 
-        async function showPolicyDetail(citationId) {
-            currentPolicy = await fetchPolicyDetail(citationId);
+        function showPolicyDetail(citationId) {
+            currentPolicy = getPolicyById(citationId);
             currentView = 'detail';
             window.scrollTo(0, 0);
-            render();
-        }
-
-        async function performSearch() {
-            isLoading = true;
-            render();
-            policies = await fetchPolicies(searchQuery, selectedType);
-            isLoading = false;
             render();
         }
 
@@ -820,6 +1402,9 @@
         function render() {
             let content = '';
             switch (currentView) {
+                case 'dashboard':
+                    content = DashboardView();
+                    break;
                 case 'search':
                     content = SearchView();
                     break;
@@ -832,15 +1417,36 @@
                 case 'queue':
                     content = QueueView();
                     break;
+                case 'verify':
+                    content = VerifyView();
+                    break;
+                case 'edit':
+                    content = EditView();
+                    break;
                 default:
-                    content = SearchView();
+                    content = DashboardView();
             }
 
             document.getElementById('app').innerHTML = Header() + content;
+
+            // Bind form submissions
+            if (currentView === 'discover') {
+                setTimeout(() => {
+                    const form = document.getElementById('policyForm');
+                    if (form) form.addEventListener('submit', handlePolicyFormSubmit);
+                }, 0);
+            }
+            if (currentView === 'edit') {
+                setTimeout(() => {
+                    const form = document.getElementById('editForm');
+                    if (form) form.addEventListener('submit', handleEditFormSubmit);
+                }, 0);
+            }
         }
 
         // Initialize
-        loadPolicies();
+        initSampleData();
+        render();
         setTimeout(initSystemNavSlider, 100);
     </script>
 </body>
